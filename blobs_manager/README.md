@@ -1,7 +1,7 @@
 
 ###Requirements
 
-- Ruby 1.9+
+- Ruby 1.9.3
 - Gems:
  ```gem install azure```
 
