@@ -5,7 +5,7 @@ class Log
   $LOG = Logger.new('log/blob_copier.log')
 
   def self.info(message)
-    puts "INFO #{message}".green
+    puts "INFO #{message}"
     $LOG.info message
   end
 
