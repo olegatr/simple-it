@@ -1,4 +1,4 @@
-#Blobs Copier
+#Blobs Manager
 
 
 ###Requirements
