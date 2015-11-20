@@ -3,8 +3,23 @@ require_relative 'log'
 require 'optparse'
 require 'ostruct'
 
-#Azure.storage_account_name = "devstoreaccount"
-#Azure.storage_access_key   = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+def copy_blob(azure_blob_service, blob, dest_blob, new_name)
+  if !dest_blob
+    copy_id, copy_status = azure_blob_service.copy_blob($options.destination, new_name, $options.source, blob.name)
+    Log.info "COPY FROM #{$options.source} - #{blob.name} TO #{$options.destination} - #{new_name} COPY_ID #{copy_id} COPY_STATUS #{copy_status}"
+    return true
+  else
+    Log.info "COPY SKIPPED FROM #{$options.source} - #{blob.name} TO #{$options.destination} - #{new_name} COPY_ID #{copy_id} COPY_STATUS #{copy_status}"
+  end
+  return false
+end
+
+def delete_blob(azure_blob_service, blob, dest_blob)
+  if dest_blob and is_identical(blob, dest_blob)
+    azure_blob_service.delete_blob($options.source, blob.name)
+    Log.info "DELETE FROM #{$options.source} - #{blob.name}"
+  end
+end
 
 def run
   begin
@@ -13,22 +28,18 @@ def run
     blobs = Azure.blobs
     azure_blob_service = Azure::Blob::BlobService.new
 
-    destination_container_blobs = blobs.list_blobs($options.destination); Log.info "Fetching blobs from #{$options.destination}" if $options.delete_mode
+    Log.info "Fetching blobs from #{$options.destination}"
+    destination_container_blobs = blobs.list_blobs($options.destination)
     files_copied_count = 0
     Log.info "Fetching blobs from #{$options.source}"
-    blobs.list_blobs($options.source).each do |blob|
+    blobs.list_blobs($options.source, {:timeout => 240,:max_results => 1000}).each do |blob|
       new_name = to_new_name(blob.name)
       if new_name
+        dest_blob = destination_container_blobs.find{|blob| blob.name == new_name}
         if $options.delete_mode
-          dest_blob = destination_container_blobs.find{|blob| blob.name == new_name}
-          if dest_blob and is_identical(blob, dest_blob)
-            azure_blob_service.delete_blob($options.source, blob.name)
-            Log.info "DELETE FROM #{$options.source} - #{blob.name}"
-          end
+          delete_blob(azure_blob_service, blob, dest_blob)
         else
-          copy_id, copy_status = azure_blob_service.copy_blob($options.destination, new_name,  $options.source, blob.name)
-          Log.info "COPY FROM #{$options.source} - #{blob.name} TO #{$options.destination} - #{new_name} COPY_ID #{copy_id} COPY_STATUS #{copy_status}"
-          files_copied_count += 1
+          files_copied_count += 1 if copy_blob(azure_blob_service, blob, dest_blob, new_name)
         end
       end
       break if $options.max_blobs and $options.max_blobs == files_copied_count
