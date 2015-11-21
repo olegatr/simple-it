@@ -15,6 +15,8 @@
     -d, --destination dest           destination container name
     -m, --maximum-blobs num          maximum blobs to copy
     -c, --clean-mode                 delete duplicate from source container
+    -r, --max_results max_results    max results per blobs chunk
+
 
     
 ###Using Examples:

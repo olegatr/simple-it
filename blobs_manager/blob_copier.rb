@@ -24,11 +24,11 @@ end
 def load_all_dest_blobs(blobs)
   blobs_list = []
   Log.info "Fetching blobs from #{$options.destination}"
-  destination_container_blobs = blobs.list_blobs($options.destination, {:timeout => 340, :max_results => 1000})
+  destination_container_blobs = blobs.list_blobs($options.destination, {:timeout => 340, :max_results => $options.max_results})
   destination_container_blobs.each {|blob| blobs_list << blob}
   Log.info "+#{destination_container_blobs.length} from #{$options.destination} total : #{blobs_list.length}"
   while destination_container_blobs.continuation_token > ""
-    destination_container_blobs = blobs.list_blobs($options.destination, {:marker => destination_container_blobs.continuation_token, :timeout => 340, :max_results => 1000})
+    destination_container_blobs = blobs.list_blobs($options.destination, {:marker => destination_container_blobs.continuation_token, :timeout => 340, :max_results => $options.max_results})
     destination_container_blobs.each {|blob| blobs_list << blob}
     Log.info "+#{destination_container_blobs.length} from #{$options.destination} total : #{blobs_list.length}"
   end
@@ -46,7 +46,7 @@ def run
     destination_container_blobs = load_all_dest_blobs(blobs)
     files_copied_count = 0
     Log.info "Fetching blobs from #{$options.source}"
-    source_blobs = blobs.list_blobs($options.source, {:timeout => 240, :max_results => 1000})
+    source_blobs = blobs.list_blobs($options.source, {:timeout => 240, :max_results => $options.max_results})
     Log.info "#{source_blobs.length} fetched from #{$options.source}"
     while source_blobs.continuation_token > ""
       source_blobs.each do |blob|
@@ -62,7 +62,8 @@ def run
         break if $options.max_blobs and $options.max_blobs == files_copied_count
       end
       break if $options.max_blobs and $options.max_blobs == files_copied_count
-      source_blobs = blobs.list_blobs($options.source, {:marker => source_blobs.continuation_token, :timeout => 240, :max_results => 1000})
+      Log.info "Fetching blobs from #{$options.source}"
+      source_blobs = blobs.list_blobs($options.source, {:marker => source_blobs.continuation_token, :timeout => 240, :max_results => $options.max_results})
       Log.info "#{source_blobs.length} fetched from #{$options.source}"
     end
   rescue Exception => exp
@@ -97,6 +98,7 @@ OptionParser.new do |opt|
   opt.on('-d', '--destination dest', 'destination container name') { |dest| $options.destination = dest }
   opt.on('-m', '--maximum-blobs num', 'maximum blobs to copy') { |num| $options.max_blobs = num.to_i }
   opt.on('-c', '--clean-mode', 'delete duplicate from source container') { $options.delete_mode = true }
+  opt.on('-r', '--max_results max_results', 'max results per blobs chunk') { |max_results| $options.max_results = max_results ? max_results.to_i : 5000 }
 end.parse!
 
 run
