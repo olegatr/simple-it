@@ -21,6 +21,20 @@ def delete_blob(azure_blob_service, blob, dest_blob)
   end
 end
 
+def load_all_dest_blobs(blobs)
+  blobs_list = []
+  Log.info "Fetching blobs from #{$options.destination}"
+  destination_container_blobs = blobs.list_blobs($options.destination, {:timeout => 340, :max_results => 1000})
+  destination_container_blobs.each {|blob| blobs_list << blob}
+  Log.info "+#{destination_container_blobs.length} from #{$options.destination} total : #{blobs_list.length}"
+  while destination_container_blobs.continuation_token > ""
+    destination_container_blobs = blobs.list_blobs($options.destination, {:marker => destination_container_blobs.continuation_token, :timeout => 340, :max_results => 1000})
+    destination_container_blobs.each {|blob| blobs_list << blob}
+    Log.info "+#{destination_container_blobs.length} from #{$options.destination} total : #{blobs_list.length}"
+  end
+    Log.info "#{blobs_list.length} fetched from #{$options.destination}"
+end
+
 def run
   begin
     Azure.storage_account_name = $options.account_name
@@ -28,21 +42,27 @@ def run
     blobs = Azure.blobs
     azure_blob_service = Azure::Blob::BlobService.new
 
-    Log.info "Fetching blobs from #{$options.destination}"
-    destination_container_blobs = blobs.list_blobs($options.destination)
+    destination_container_blobs = load_all_dest_blobs(blobs)
     files_copied_count = 0
     Log.info "Fetching blobs from #{$options.source}"
-    blobs.list_blobs($options.source, {:timeout => 240}).each do |blob|
-      new_name = to_new_name(blob.name)
-      if new_name
-        dest_blob = destination_container_blobs.find{|blob| blob.name == new_name}
-        if $options.delete_mode
-          delete_blob(azure_blob_service, blob, dest_blob)
-        else
-          files_copied_count += 1 if copy_blob(azure_blob_service, blob, dest_blob, new_name)
+    source_blobs = blobs.list_blobs($options.source, {:timeout => 240})
+    Log.info "#{source_blobs.length} fetched from #{$options.source}"
+    while source_blobs.continuation_token > ""
+      source_blobs.each do |blob|
+        new_name = to_new_name(blob.name)
+        if new_name
+          dest_blob = destination_container_blobs.find{|blob| blob.name == new_name}
+          if $options.delete_mode
+            delete_blob(azure_blob_service, blob, dest_blob)
+          else
+            files_copied_count += 1 if copy_blob(azure_blob_service, blob, dest_blob, new_name)
+          end
         end
+        break if $options.max_blobs and $options.max_blobs == files_copied_count
       end
       break if $options.max_blobs and $options.max_blobs == files_copied_count
+      source_blobs = blobs.list_blobs($options.source, {:marker => source_blobs.continuation_token, :timeout => 240})
+      Log.info "#{source_blobs.length} fetched from #{$options.source}"
     end
   rescue Exception => exp
     Log.error "Error : #{exp.message}, trace: #{exp.backtrace}"
