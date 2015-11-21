@@ -32,7 +32,7 @@ def run
     destination_container_blobs = blobs.list_blobs($options.destination)
     files_copied_count = 0
     Log.info "Fetching blobs from #{$options.source}"
-    blobs.list_blobs($options.source, {:timeout => 240,:max_results => 1000}).each do |blob|
+    blobs.list_blobs($options.source, {:timeout => 240}).each do |blob|
       new_name = to_new_name(blob.name)
       if new_name
         dest_blob = destination_container_blobs.find{|blob| blob.name == new_name}
