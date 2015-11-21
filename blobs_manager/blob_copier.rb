@@ -33,6 +33,7 @@ def load_all_dest_blobs(blobs)
     Log.info "+#{destination_container_blobs.length} from #{$options.destination} total : #{blobs_list.length}"
   end
     Log.info "#{blobs_list.length} fetched from #{$options.destination}"
+  blobs_list
 end
 
 def run
@@ -45,7 +46,7 @@ def run
     destination_container_blobs = load_all_dest_blobs(blobs)
     files_copied_count = 0
     Log.info "Fetching blobs from #{$options.source}"
-    source_blobs = blobs.list_blobs($options.source, {:timeout => 240})
+    source_blobs = blobs.list_blobs($options.source, {:timeout => 240, :max_results => 1000})
     Log.info "#{source_blobs.length} fetched from #{$options.source}"
     while source_blobs.continuation_token > ""
       source_blobs.each do |blob|
@@ -61,7 +62,7 @@ def run
         break if $options.max_blobs and $options.max_blobs == files_copied_count
       end
       break if $options.max_blobs and $options.max_blobs == files_copied_count
-      source_blobs = blobs.list_blobs($options.source, {:marker => source_blobs.continuation_token, :timeout => 240})
+      source_blobs = blobs.list_blobs($options.source, {:marker => source_blobs.continuation_token, :timeout => 240, :max_results => 1000})
       Log.info "#{source_blobs.length} fetched from #{$options.source}"
     end
   rescue Exception => exp
